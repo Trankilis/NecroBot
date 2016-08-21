@@ -40,6 +40,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public PlayerConfig PlayerSettings = new PlayerConfig();
         public SoftBanConfig SoftBanSettings = new SoftBanConfig();
         public GoogleWalkConfig GoogleWalkConfig = new GoogleWalkConfig();
+        public KillSwitchSettings KillSwitchSettings = new KillSwitchSettings();
 
         public List<KeyValuePair<ItemId, int>> ItemRecycleFilter = new List<KeyValuePair<ItemId, int>>
         {
@@ -413,12 +414,6 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public void checkProxy(ITranslation translator)
         {
             Auth.checkProxy(translator);
-        }
-
-        public static void CheckGoogleAPI(ITranslation translator, GlobalSettings settings)
-        {
-            if (settings.GoogleWalkConfig.UseGoogleWalk && !settings.GPXSettings.UseGpxPathing)
-                Logger.Write(translator.GetTranslation(TranslationString.GoogleAPIFailed), LogLevel.Info, ConsoleColor.Red);
         }
 
         public static bool PromptForSetup(ITranslation translator)
