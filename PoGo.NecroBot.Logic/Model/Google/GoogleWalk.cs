@@ -20,8 +20,6 @@ namespace PoGo.NecroBot.Logic.Model.Google
 
             Waypoints = new List<GeoCoordinate>();
             // In some cases, player are inside build
-            Waypoints.Add(googleResult.Origin);
-
             Waypoints.Add(new GeoCoordinate(route.legs.First().start_location.lat, route.legs.First().start_location.lng));
             Waypoints.AddRange(route.overview_polyline.DecodePoly());
             Waypoints.Add(new GeoCoordinate(route.legs.Last().end_location.lat, route.legs.Last().end_location.lng));

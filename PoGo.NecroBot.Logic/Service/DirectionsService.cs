@@ -45,7 +45,6 @@ namespace PoGo.NecroBot.Logic.Service
                 HttpResponseMessage responseMessage = client.GetAsync(url).Result;
                 var resposta = responseMessage.Content.ReadAsStringAsync();
                 var google = JsonConvert.DeserializeObject<DirectionsResponse>(resposta.Result);
-
                 var resultadoPesquisa = new GoogleResult
                 {
                     Directions = google,
@@ -55,6 +54,7 @@ namespace PoGo.NecroBot.Logic.Service
                     Destiny = destino,
                     FromCache = false,
                 };
+                resultadoPesquisa.UncodedPath = GoogleWalk.Get(resultadoPesquisa).Waypoints;
 
                 if (_cache)
                     SaveResult(resultadoPesquisa);

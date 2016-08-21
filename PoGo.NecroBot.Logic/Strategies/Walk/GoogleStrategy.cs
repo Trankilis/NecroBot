@@ -43,62 +43,63 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
             }
             session.EventDispatcher.Send(new NewPathToDestinyEvent { GoogleData = googleResult });
 
-            var googleWalk = GoogleWalk.Get(googleResult);
-
             PlayerUpdateResponse result = null;
-            List<GeoCoordinate> points = googleWalk.Waypoints;
-
+            List<GeoCoordinate> points = googleResult.UncodedPath;
+            Task<PlayerUpdateResponse> sendingData = null;
             foreach (var nextStep in points)
             {
                 var speedInMetersPerSecond = session.LogicSettings.UseWalkingSpeedVariant ? MajorWalkingSpeedVariant(session) : session.LogicSettings.WalkingSpeedInKilometerPerHour / 3.6;
-                var nextWaypointBearing = LocationUtils.DegreeBearing(sourceLocation, nextStep);
-                var nextWaypointDistance = speedInMetersPerSecond;
-                sourceLocation = LocationUtils.CreateWaypoint(sourceLocation, nextWaypointDistance, nextWaypointBearing);
 
                 var requestSendDateTime = DateTime.Now;
-                result = await _client.Player.UpdatePlayerLocation(sourceLocation.Latitude, sourceLocation.Longitude, sourceLocation.Altitude);
 
-                UpdatePositionEvent?.Invoke(sourceLocation.Latitude, sourceLocation.Longitude);
-
-                var realDistanceToTarget = LocationUtils.CalculateDistanceInMeters(sourceLocation, targetLocation);
-                if (realDistanceToTarget < 10)
-                    break;
-
+                var realDistanceToTarget = sourceLocation.GetDistanceTo(targetLocation);
+                if (realDistanceToTarget < _randWalking.Next(20, 40))
+                {
+                    return await _client.Player.UpdatePlayerLocation(sourceLocation.Latitude, sourceLocation.Longitude, sourceLocation.Altitude);
+                }
+                
                 do
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     var millisecondsUntilGetUpdatePlayerLocationResponse = (DateTime.Now - requestSendDateTime).TotalMilliseconds;
-                    var currentDistanceToTarget = LocationUtils.CalculateDistanceInMeters(sourceLocation, nextStep);
 
-                    var realDistanceToTargetSpeedDown = LocationUtils.CalculateDistanceInMeters(sourceLocation, targetLocation);
+                    var realDistanceToTargetSpeedDown = sourceLocation.GetDistanceTo(targetLocation);
                     if (realDistanceToTargetSpeedDown < 40)
                         if (speedInMetersPerSecond > SpeedDownTo)
                             speedInMetersPerSecond = SpeedDownTo;
 
                     if (session.LogicSettings.UseWalkingSpeedVariant)
-                        speedInMetersPerSecond = MinorWalkingSpeedVariant(session);
+                        speedInMetersPerSecond = (_currentWalkingSpeed * 3.6) < session.LogicSettings.WalkingSpeedInKilometerPerHour ? MinorWalkingSpeedVariant(session) : MajorWalkingSpeedVariant(session);
 
-                    nextWaypointDistance = Math.Min(currentDistanceToTarget, millisecondsUntilGetUpdatePlayerLocationResponse / 1000 * speedInMetersPerSecond);
-                    nextWaypointBearing = LocationUtils.DegreeBearing(sourceLocation, nextStep);
+                    var nextWaypointDistance = millisecondsUntilGetUpdatePlayerLocationResponse / 1000 * speedInMetersPerSecond;
+                    var nextWaypointBearing = LocationUtils.DegreeBearing(sourceLocation, nextStep);
                     sourceLocation = LocationUtils.CreateWaypoint(sourceLocation, nextWaypointDistance, nextWaypointBearing);
-                    // After a correct waypoint, get a random imprecise point in 5 meters around player - more realistic
-                    var impreciseLocation = GenerateUnaccurateGeocoordinate(sourceLocation, nextWaypointBearing);
-                    requestSendDateTime = DateTime.Now;
-                    result = await _client.Player.UpdatePlayerLocation(impreciseLocation.Latitude, impreciseLocation.Longitude, impreciseLocation.Altitude);
 
-                    session.EventDispatcher.Send(new UnaccurateLocation { Latitude = impreciseLocation.Latitude, Longitude = impreciseLocation.Longitude });
+                    // After a correct waypoint, get a random imprecise point in 5 meters around player - more realistic and prevent to walk on same line of Google Path
+                    if (DateTime.Now.Subtract(requestSendDateTime).TotalSeconds > 8) 
+                    {
+                        var impreciseLocation = GenerateUnaccurateGeocoordinate(sourceLocation, nextWaypointBearing);
+                        requestSendDateTime = DateTime.Now;
+                        sendingData = _client.Player.UpdatePlayerLocation(impreciseLocation.Latitude, impreciseLocation.Longitude, impreciseLocation.Altitude);
+                        session.EventDispatcher.Send(new UnaccurateLocation
+                        {
+                            Latitude = impreciseLocation.Latitude,
+                            Longitude = impreciseLocation.Longitude
+                        });
+                    }
+
                     UpdatePositionEvent?.Invoke(sourceLocation.Latitude, sourceLocation.Longitude);
-
 
                     if (functionExecutedWhileWalking != null)
                         await functionExecutedWhileWalking(); // look for pokemon
-                } while (LocationUtils.CalculateDistanceInMeters(sourceLocation, nextStep) >= 2);
+                } while (sourceLocation.GetDistanceTo(nextStep) >= 3 ||
+                         sourceLocation.GetDistanceTo(targetLocation) <= _randWalking.Next(5, 30));
 
-                UpdatePositionEvent?.Invoke(nextStep.Latitude, nextStep.Longitude);
             }
 
-            return result;
+            Task.WaitAll(sendingData);
+            return sendingData.Result;
         }
 
         /// <summary>
@@ -107,6 +108,7 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
         /// </summary>
         public GeoCoordinate GenerateUnaccurateGeocoordinate(GeoCoordinate geo, double nextWaypointBearing)
         {
+
             var minBearing = Convert.ToInt32(nextWaypointBearing - 40);
             minBearing = minBearing > 0 ? minBearing : minBearing * -1;
             var maxBearing = Convert.ToInt32(nextWaypointBearing + 40);

@@ -14,6 +14,7 @@ namespace PoGo.NecroBot.Logic.Model.Google
         public GeoCoordinate Destiny { get; set; }
         public List<GeoCoordinate> Waypoints { get; set; }
         public bool FromCache { get; set; }
+        public List<GeoCoordinate> UncodedPath { get; set; }
 
         /// <summary>
         /// Google time to reach destiny. If car, consider traffic data.
