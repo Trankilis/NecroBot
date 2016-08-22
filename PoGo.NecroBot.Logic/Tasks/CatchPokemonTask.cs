@@ -40,7 +40,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                 var limit = session.LogicSettings.CatchPokemonLimitMinutes * 60;
                 if (sec < limit)
                 {
-                    session.EventDispatcher.Send(new ErrorEvent { Message = "You are catching too fast. Your cannot catch another one until " + (limit - sec) + " seconds later."});
+                    session.EventDispatcher.Send(new ErrorEvent { Message = "You are catching too fast. Your cannot catch another one until " + (limit - sec) + " seconds later." });
                     return true;
                 }
             }
@@ -65,25 +65,16 @@ namespace PoGo.NecroBot.Logic.Tasks
             if (pokeball == ItemId.ItemUnknown) return;
 
             //Calculate CP and IV
-            var pokemonCp = (encounter is EncounterResponse
-                               ? encounter.WildPokemon?.PokemonData?.Cp
-                               : encounter.PokemonData?.Cp);
-            var pokemonIv = PokemonInfo.CalculatePokemonPerfection(encounter is EncounterResponse
-                    ? encounter.WildPokemon?.PokemonData
-                    : encounter?.PokemonData);
+            var pokemonCp = (encounter is EncounterResponse ? encounter.WildPokemon?.PokemonData?.Cp : encounter.PokemonData?.Cp);
+            var pokemonIv = PokemonInfo.CalculatePokemonPerfection(encounter is EncounterResponse ? encounter.WildPokemon?.PokemonData : encounter?.PokemonData);
 
             // Calculate distance away
-            var distance = LocationUtils.CalculateDistanceInMeters(session.Client.CurrentLatitude,
-                session.Client.CurrentLongitude,
-                encounter is EncounterResponse || encounter is IncenseEncounterResponse
-                    ? pokemon.Latitude
-                    : currentFortData.Latitude,
-                encounter is EncounterResponse || encounter is IncenseEncounterResponse
-                    ? pokemon.Longitude
-                    : currentFortData.Longitude);
+            var distance = LocationUtils.CalculateDistanceInMeters(session.Client.CurrentLatitude, session.Client.CurrentLongitude, encounter is EncounterResponse || encounter is IncenseEncounterResponse ? pokemon.Latitude : currentFortData.Latitude, encounter is EncounterResponse || encounter is IncenseEncounterResponse ? pokemon.Longitude : currentFortData.Longitude);
+
 
             CatchPokemonResponse caughtPokemonResponse;
             var attemptCounter = 1;
+            bool usedBerry = false;
             do
             {
                 if ((session.LogicSettings.MaxPokeballsPerPokemon > 0 &&
@@ -96,10 +87,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                     session.EventDispatcher.Send(new NoPokeballEvent
                     {
                         Id = encounter is EncounterResponse ? pokemon.PokemonId : encounter?.PokemonData.PokemonId,
-                        Cp =
-                            (encounter is EncounterResponse
-                                ? encounter.WildPokemon?.PokemonData?.Cp
-                                : encounter?.PokemonData?.Cp) ?? 0
+                        Cp = (encounter is EncounterResponse ? encounter.WildPokemon?.PokemonData?.Cp : encounter?.PokemonData?.Cp) ?? 0
                     });
                     return;
                 }
@@ -116,16 +104,10 @@ namespace PoGo.NecroBot.Logic.Tasks
                 {
 
                     AmountOfBerries++;
-                    if (AmountOfBerries <= session.LogicSettings.MaxBerriesToUsePerPokemon)
+                    if (AmountOfBerries <= session.LogicSettings.MaxBerriesToUsePerPokemon && !usedBerry)
                     {
-                        await
-                       UseBerry(session,
-                           encounter is EncounterResponse || encounter is IncenseEncounterResponse
-                               ? pokemon.EncounterId
-                               : encounterId,
-                           encounter is EncounterResponse || encounter is IncenseEncounterResponse
-                               ? pokemon.SpawnPointId
-                               : currentFortData?.Id);
+                        await UseBerry(session, encounter is EncounterResponse || encounter is IncenseEncounterResponse? pokemon.EncounterId : encounterId, encounter is EncounterResponse || encounter is IncenseEncounterResponse ? pokemon.SpawnPointId : currentFortData?.Id);
+                        usedBerry = true;
                     }
 
                 }
@@ -193,9 +175,16 @@ namespace PoGo.NecroBot.Logic.Tasks
                 int missChance = Random.Next(0, 101);
                 bool hitPokemon = true;
                 if (missChance <= session.LogicSettings.ThrowMissPercentage && session.LogicSettings.EnableMissedThrows && session.LogicSettings.EnableHumanizedThrows)
+                {
                     hitPokemon = false;
-                caughtPokemonResponse =
-                    await session.Client.Encounter.CatchPokemon(
+                }
+                else
+                {
+                    // If throw misse, can't use another berry
+                    // https://github.com/NoxxDev/NecroBot/issues/401
+                    usedBerry = false;
+                }
+                caughtPokemonResponse = await session.Client.Encounter.CatchPokemon(
                         encounter is EncounterResponse || encounter is IncenseEncounterResponse
                             ? pokemon.EncounterId
                             : encounterId,
@@ -258,7 +247,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                     : encounter is DiskEncounterResponse
                         ? "lure"
                         : "incense";
-                evt.Id = encounter is EncounterResponse 
+                evt.Id = encounter is EncounterResponse
                     ? pokemon.PokemonId : encounter?.PokemonData.PokemonId;
                 evt.EncounterId = encounter is EncounterResponse || encounter is IncenseEncounterResponse
                     ? pokemon.EncounterId
