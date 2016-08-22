@@ -125,13 +125,27 @@ namespace PoGo.NecroBot.CLI
             }
         }
 
+        private static void HandleEvent(NewPathToDestinyEvent newPathEvent, ISession session)
+        {
+            var realDistance = newPathEvent.GoogleData.GetDistance();
+            var timeDistance = (int)(realDistance / (session.LogicSettings.WalkingSpeedInKilometerPerHour * 0.5));
+
+            Logger.Write(session.Translation.GetTranslation(TranslationString.NewPathToDestiny, realDistance, timeDistance),
+                LogLevel.Info, ConsoleColor.Gray);
+        }
         private static void HandleEvent(FortTargetEvent fortTargetEvent, ISession session)
         {
             int intTimeForArrival = (int)(fortTargetEvent.Distance / (session.LogicSettings.WalkingSpeedInKilometerPerHour * 0.5));
+            var distance = Math.Round(fortTargetEvent.Distance);
+            if (session.LogicSettings.UseGoogleWalk)
+            {
+                intTimeForArrival = 0;
+                distance = 0;
+            }
 
             Logger.Write(
                 session.Translation.GetTranslation(TranslationString.EventFortTargeted, fortTargetEvent.Name,
-                     Math.Round(fortTargetEvent.Distance), intTimeForArrival),
+                distance, intTimeForArrival),
                 LogLevel.Info, ConsoleColor.Gray);
         }
 
@@ -210,6 +224,7 @@ namespace PoGo.NecroBot.CLI
             }
 
         }
+
 
         private static void HandleEvent(NoPokeballEvent noPokeballEvent, ISession session)
         {
@@ -358,7 +373,7 @@ namespace PoGo.NecroBot.CLI
             else
                 Logger.Write(killSwitchEvent.Message, LogLevel.Info, ConsoleColor.White);
         }
-        
+
         internal void Listen(IEvent evt, ISession session)
         {
             dynamic eve = evt;

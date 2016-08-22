@@ -214,7 +214,8 @@ namespace PoGo.NecroBot.Logic.Common
         PokestopsKillSwitch,
         RequestHumanDistance,
         CalculatingNextPokestop,
-        GoogleAPIWarning
+        GoogleAPIWarning,
+        NewPathToDestiny
     }
 
     public class Translation : ITranslation
@@ -245,15 +246,12 @@ namespace PoGo.NecroBot.Logic.Common
                 "Name: {0} INFO: Looting failed, possible softban. Unban in: {1}/{2}"),
             new KeyValuePair<TranslationString, string>(TranslationString.EventFortTargeted,
                 "Traveling to Pokestop: {0} ({1}m) ({2} seconds)"),
+             new KeyValuePair<TranslationString, string>(TranslationString.NewPathToDestiny, "Traveling to Pokestop with Google: Distance: {0}m, Travel time {1} seconds approximately"),
             new KeyValuePair<TranslationString, string>(TranslationString.EventProfileLogin, "Playing as {0}"),
-            new KeyValuePair<TranslationString, string>(TranslationString.EventUsedIncense,
-                "Used Incense, remaining: {0}"),
-            new KeyValuePair<TranslationString, string>(TranslationString.EventUsedLuckyEgg,
-                "Used Lucky Egg, remaining: {0}"),
-            new KeyValuePair<TranslationString, string>(TranslationString.EventPokemonEvolvedSuccess,
-                "{0} successfully for {1}xp"),
-            new KeyValuePair<TranslationString, string>(TranslationString.EventPokemonEvolvedFailed,
-                "Failed {0}. Result was {1}, stopping evolving {2}"),
+            new KeyValuePair<TranslationString, string>(TranslationString.EventUsedIncense, "Used Incense, remaining: {0}"),
+            new KeyValuePair<TranslationString, string>(TranslationString.EventUsedLuckyEgg, "Used Lucky Egg, remaining: {0}"),
+            new KeyValuePair<TranslationString, string>(TranslationString.EventPokemonEvolvedSuccess, "{0} successfully for {1}xp"),
+            new KeyValuePair<TranslationString, string>(TranslationString.EventPokemonEvolvedFailed, "Failed {0}. Result was {1}, stopping evolving {2}"),
             new KeyValuePair<TranslationString, string>(TranslationString.EventPokemonTransferred,
                 "{0}\t- CP: {1}  IV: {2}%   [Best CP: {3}  IV: {4}%] (Candies: {5})"),
             new KeyValuePair<TranslationString, string>(TranslationString.EventItemRecycled, "{0}x {1}"),

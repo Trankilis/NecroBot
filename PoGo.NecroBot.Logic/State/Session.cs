@@ -1,9 +1,13 @@
 #region using directives
 
+using System;
+using System.IO;
+using GeoCoordinatePortable;
 using PoGo.NecroBot.Logic.Common;
 using PoGo.NecroBot.Logic.Event;
 using PoGo.NecroBot.Logic.Interfaces.Configuration;
 using PoGo.NecroBot.Logic.Service;
+using PoGo.NecroBot.Logic.Utils;
 using PokemonGo.RocketAPI;
 using POGOProtos.Networking.Responses;
 
@@ -59,11 +63,53 @@ namespace PoGo.NecroBot.Logic.State
         public void Reset(ISettings settings, ILogicSettings logicSettings)
         {
             ApiFailureStrategy _apiStrategy = new ApiFailureStrategy(this);
+
+            var lastPos = LoadPositionFromDisk(logicSettings);
+            if (lastPos != null)
+            {
+                settings.DefaultLatitude = lastPos.Latitude;
+                settings.DefaultLongitude = lastPos.Longitude;
+                settings.DefaultAltitude = lastPos.Altitude;
+            }
+
             Client = new Client(Settings, _apiStrategy);
             // ferox wants us to set this manually
             Inventory = new Inventory(Client, logicSettings);
             Navigation = new Navigation(Client, logicSettings);
             KillSwitch = new KillSwitch();
+        }
+
+        private static GeoCoordinate LoadPositionFromDisk(ILogicSettings logicSettings)
+        {
+            if (
+                File.Exists(Path.Combine(logicSettings.ProfileConfigPath, "LastPos.ini")) &&
+                File.ReadAllText(Path.Combine(logicSettings.ProfileConfigPath, "LastPos.ini")).Contains(":"))
+            {
+                var latlngFromFile =
+                    File.ReadAllText(Path.Combine(logicSettings.ProfileConfigPath, "LastPos.ini"));
+                var latlng = latlngFromFile.Split(':');
+                if (latlng[0].Length != 0 && latlng[1].Length != 0)
+                {
+                    try
+                    {
+                        var latitude = Convert.ToDouble(latlng[0]);
+                        var longitude = Convert.ToDouble(latlng[1]);
+
+                        if (Math.Abs(latitude) <= 90 && Math.Abs(longitude) <= 180)
+                        {
+                            return new GeoCoordinate(latitude, longitude, LocationUtils.getElevation(latitude, longitude));
+                        }
+
+                        return null;
+                    }
+                    catch (FormatException)
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }

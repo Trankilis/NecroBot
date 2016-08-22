@@ -91,10 +91,8 @@ namespace PoGo.NecroBot.CLI
                 catch (Exception) { }
             }
 
-
             var session = new Session(new ClientSettings(settings), new LogicSettings(settings));
-
-            Teste.Testar(session);
+            
             if (boolNeedsSetup)
             {
                 if (GlobalSettings.PromptForSetup(session.Translation))

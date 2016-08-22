@@ -44,6 +44,8 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
             PlayerUpdateResponse result = null;
             List<GeoCoordinate> points = googleResult.UncodedPath;
             Task<PlayerUpdateResponse> sendingData = null;
+            var requestSendDatetime = new DateTime();
+
             foreach (var nextStep in points)
             {
                 if (CurrentWalkingSpeed <= 0)
@@ -53,19 +55,19 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
 
                 var speedInMetersPerSecond = CurrentWalkingSpeed / 3.6;
 
-                var requestSendDateTime = DateTime.Now;
+                var lastWalk = DateTime.Now;
 
                 var realDistanceToTarget = sourceLocation.GetDistanceTo(targetLocation);
                 if (realDistanceToTarget < _randWalking.Next(20, 40))
                 {
                     return await _client.Player.UpdatePlayerLocation(sourceLocation.Latitude, sourceLocation.Longitude, sourceLocation.Altitude);
                 }
-                
+
                 do
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var millisecondsUntilGetUpdatePlayerLocationResponse = (DateTime.Now - requestSendDateTime).TotalMilliseconds;
+                    var millisecondsUntilGetUpdatePlayerLocationResponse = (DateTime.Now - lastWalk).TotalMilliseconds;
 
                     var realDistanceToTargetSpeedDown = sourceLocation.GetDistanceTo(targetLocation);
                     if (realDistanceToTargetSpeedDown < 40)
@@ -73,7 +75,7 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                             speedInMetersPerSecond = SpeedDownTo;
 
                     if (session.LogicSettings.UseWalkingSpeedVariant)
-                                            {
+                    {
                         CurrentWalkingSpeed = session.Navigation.VariantRandom(session, CurrentWalkingSpeed);
                         speedInMetersPerSecond = CurrentWalkingSpeed / 3.6;
                     }
@@ -83,10 +85,11 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                     sourceLocation = LocationUtils.CreateWaypoint(sourceLocation, nextWaypointDistance, nextWaypointBearing);
 
                     // After a correct waypoint, get a random imprecise point in 5 meters around player - more realistic and prevent to walk on same line of Google Path
-                    if (DateTime.Now.Subtract(requestSendDateTime).TotalSeconds > 8) 
+
+                    if (DateTime.Now.Subtract(requestSendDatetime).TotalSeconds > _randWalking.Next(8, 15))
                     {
                         var impreciseLocation = GenerateUnaccurateGeocoordinate(sourceLocation, nextWaypointBearing);
-                        requestSendDateTime = DateTime.Now;
+                        requestSendDatetime = DateTime.Now;
                         sendingData = _client.Player.UpdatePlayerLocation(impreciseLocation.Latitude, impreciseLocation.Longitude, impreciseLocation.Altitude);
                         session.EventDispatcher.Send(new UnaccurateLocation
                         {
@@ -94,18 +97,23 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                             Longitude = impreciseLocation.Longitude
                         });
                     }
+                    
 
+                    
                     UpdatePositionEvent?.Invoke(sourceLocation.Latitude, sourceLocation.Longitude);
-
                     if (functionExecutedWhileWalking != null)
                         await functionExecutedWhileWalking(); // look for pokemon
+
+                    lastWalk = DateTime.Now;
+                    Thread.Sleep(1000);
                 } while (sourceLocation.GetDistanceTo(nextStep) >= 3 ||
                          sourceLocation.GetDistanceTo(targetLocation) <= _randWalking.Next(5, 30));
+
 
             }
 
             Task.WaitAll(sendingData);
-            return sendingData.Result;
+            return await _client.Player.UpdatePlayerLocation(sourceLocation.Latitude, sourceLocation.Longitude, sourceLocation.Altitude);
         }
 
         /// <summary>
