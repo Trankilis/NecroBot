@@ -107,7 +107,7 @@ namespace PoGo.NecroBot.Logic.Strategies.Walk
                     lastWalk = DateTime.Now;
                     Thread.Sleep(1000);
                 } while (sourceLocation.GetDistanceTo(nextStep) >= 3 ||
-                         sourceLocation.GetDistanceTo(targetLocation) <= _randWalking.Next(5, 30));
+                         sourceLocation.GetDistanceTo(targetLocation) <= _randWalking.Next(30));
 
 
             }
